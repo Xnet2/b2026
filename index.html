@@ -393,6 +393,39 @@ mark { background: #fff0b3; color: inherit; border-radius: 3px; padding: 0 1px; 
     .form-card { padding: 18px; }
 }
 @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } .brand-name { font-size: 17px; } }
+
+/* ---------- הפוסטיה ---------- */
+:root { --pstia-w: min(410px, 100vw); }
+.pstia-tab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 9px; background: var(--brand); color: #fff; border-radius: 14px 0 0 14px; box-shadow: var(--shadow-2); font-weight: 800; font-size: 14px; transition: right .25s ease, background .15s; }
+.pstia-tab:hover { background: var(--brand-ink); }
+.pstia-label { writing-mode: vertical-rl; letter-spacing: .5px; }
+.pstia-badge { position: absolute; top: -8px; left: -8px; min-width: 21px; height: 21px; border-radius: 11px; background: var(--danger); color: #fff; font-size: 11.5px; font-weight: 800; display: grid; place-items: center; padding: 0 6px; border: 2px solid var(--bg); }
+.pstia-badge[hidden] { display: none; }
+body.pstia-open .pstia-tab { right: var(--pstia-w); }
+.pstia { position: fixed; top: var(--bar-h); bottom: 0; right: 0; width: var(--pstia-w); z-index: 65; background: var(--surface); border-left: 1px solid var(--line);
+    box-shadow: -12px 0 32px rgba(15, 40, 45, .12); transform: translateX(105%); visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s; display: flex; flex-direction: column; }
+.pstia.open { transform: none; visibility: visible; transition: transform .25s ease; }
+.pstia-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 17px; flex-shrink: 0; }
+.pstia-head b i { color: var(--brand); margin-inline-end: 6px; }
+.pstia-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.pcomposer { padding: 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.pcomposer .editor .field { min-height: 84px; }
+.pfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.pcomposer .pnote { color: var(--muted); text-align: center; padding: 6px 0; }
+.pcomposer .pnote a { color: var(--brand); font-weight: 700; }
+.pitem { padding: 14px; border-bottom: 1px solid var(--line); }
+.pitem .post-head { margin-bottom: 8px; }
+.pitem .post-body { font-size: 15.5px; line-height: 1.65; }
+.pitem .post-actions { margin-top: 8px; }
+.pempty { padding: 36px 18px; text-align: center; color: var(--muted); }
+.pempty b { display: block; color: var(--ink); margin-bottom: 4px; }
+.pstia-body .more { padding: 14px 0; margin: 0; }
+@media (max-width: 760px) {
+    .pstia { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); }
+    .pstia-tab { top: 62%; }
+}
+@media (max-width: 520px) { body.pstia-open .pstia-tab { display: none; } }
 </style>
 </head>
 <body>
@@ -414,6 +447,11 @@ mark { background: #fff0b3; color: inherit; border-radius: 3px; padding: 0 1px; 
 <div class="banner" id="reg-banner" hidden>כדי להשלים את ההצטרפות לפורום יש לאשר את כללי השימוש. <a href="" data-link="/login">להשלמת ההרשמה</a></div>
 <main class="container" id="app" aria-live="polite"></main>
 <nav class="tabbar" id="nav-mobile" aria-label="ניווט ראשי"></nav>
+<button type="button" class="pstia-tab" id="pstia-tab" data-act="pstia-toggle" aria-controls="pstia" aria-expanded="false"><i class="fa-solid fa-pen-nib"></i><span class="pstia-label">הפוסטיה</span><span class="pstia-badge" id="pstia-badge" hidden></span></button>
+<aside class="pstia" id="pstia" aria-label="הפוסטיה" aria-hidden="true">
+    <div class="pstia-head"><b><i class="fa-solid fa-pen-nib"></i> הפוסטיה</b><button type="button" class="btn btn-ghost btn-icon" data-act="pstia-close" aria-label="סגירת הפוסטיה"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="pstia-body" id="pstia-scroll"><div id="pstia-composer"></div><div id="pstia-feed"></div><div id="pstia-more"></div></div>
+</aside>
 <div class="toasts" id="toasts" role="status"></div>
 <input type="file" id="img-input" accept="image/*" multiple hidden>
 
@@ -424,6 +462,8 @@ mark { background: #fff0b3; color: inherit; border-radius: 3px; padding: 0 1px; 
 const CFG = {
     API_URL: "https://dhoc97909.pythonanywhere.com/elections-api/posts",
     USERS_API_URL: "https://dhoc97909.pythonanywhere.com/elections-api/users",
+    SYNC_URL: "https://dhoc97909.pythonanywhere.com/elections-api/sync",
+    FEED_URL: "https://dhoc97909.pythonanywhere.com/elections-api/feed",
     ADMIN_EMAIL: "dh058328@gmail.com",
     GOOGLE_CLIENT_ID: "426523025549-7c50rkn7cun4vmm2r802u0ij6egjehtg.apps.googleusercontent.com",
     CAT: 'cat_',
@@ -434,7 +474,7 @@ const CFG = {
     CLOUDINARY_PRESET: 'foromny'
 };
 
-const state = { posts: [], user: null, loading: true, loadError: false, lastLoad: 0, renderToken: 0, drafts: {}, quote: null, editing: null, editDraft: '', topicId: null, shownKey: '', pendingScroll: null, form: null, submitting: false, uploads: 0, uploadTarget: null, inflight: 0, mutatedAt: 0, usersUI: { q: '', sort: 'count' }, profileMax: 60, profileUid: '', follows: { topics: new Set(), users: new Set() }, notifs: [], notifTimer: null, needsReg: false, returnTo: null, locallyRead: new Set(), locallySeen: new Set(), mention: null };
+const state = { posts: [], user: null, loading: true, loadError: false, lastLoad: 0, renderToken: 0, drafts: {}, quote: null, editing: null, editDraft: '', topicId: null, shownKey: '', pendingScroll: null, form: null, submitting: false, uploads: 0, uploadTarget: null, inflight: 0, mutatedAt: 0, usersUI: { q: '', sort: 'count' }, profileMax: 60, profileUid: '', follows: { topics: new Set(), users: new Set() }, notifs: [], notifTimer: null, needsReg: false, returnTo: null, locallyRead: new Set(), locallySeen: new Set(), mention: null, rev: -1, feed: [], pstiaMax: 40, pstiaDraft: '' };
 
 /* ============ כלי עזר ============ */
 const $ = (s, r = document) => r.querySelector(s);
@@ -471,10 +511,10 @@ async function request(url, opts = {}, timeout = 20000) {
 }
 
 // שליחת פעולה לשרת עם ניסיונות חוזרים. check מאשר שהתשובה באמת מציינת הצלחה
-async function apiPostRaw(body, check = () => true, { retries = 2, delay = 800 } = {}) {
+async function apiPostRaw(body, check = () => true, { retries = 2, delay = 800 } = {}, url = CFG.API_URL) {
     for (let i = 0; i <= retries; i++) {
         try {
-            const res = await request(CFG.API_URL, {
+            const res = await request(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(body)
@@ -489,15 +529,20 @@ async function apiPostRaw(body, check = () => true, { retries = 2, delay = 800 }
     return false;
 }
 // עוטף כל כתיבה לשרת, כדי שרענון ברקע לא ידרוס שינוי שעדיין בדרך
-async function apiPost(body, check, opts) {
+async function apiPost(body, check, opts, url) {
     state.inflight++; state.mutatedAt = Date.now();
-    try { return await apiPostRaw(body, check, opts); }
+    try { return await apiPostRaw(body, check, opts, url); }
     finally { state.inflight--; state.mutatedAt = Date.now(); }
 }
 const api = {
     insert: rows => apiPost({ action: 'insert', data: rows }, j => !(j && j.error), { retries: 0 }),
     update: (column, value, data) => apiPost({ action: 'update', column, value, data }, j => j && j.updated > 0, { retries: 3 }),
     remove: (column, value) => apiPost({ action: 'delete', column, value }, j => j && j.deleted > 0)
+};
+const feedApi = {
+    insert: rows => apiPost({ action: 'insert', data: rows }, j => !(j && j.error), { retries: 0 }, CFG.FEED_URL),
+    update: (value, data) => apiPost({ action: 'update', value, data }, j => j && j.updated > 0, { retries: 3 }, CFG.FEED_URL),
+    remove: value => apiPost({ action: 'delete', value }, j => j && j.deleted > 0, undefined, CFG.FEED_URL)
 };
 
 // מחבר נתוני שרת עם פוסטים שעדיין ממתינים (עדכון אופטימי), ומשמר ציטוטים שחסרים בתשובה
@@ -529,11 +574,13 @@ async function loadData() {
         render({ soft: true });
     }
     try {
-        const res = await request(CFG.API_URL);
+        const res = await request(CFG.SYNC_URL + '?since=-1');
         const json = await res.json();
-        if (!Array.isArray(json)) throw new Error('bad response');
+        if (!json || !Array.isArray(json.posts)) throw new Error('bad response');
         if (isRefresh && (state.inflight > 0 || state.mutatedAt > started)) return;   // יש שינוי בדרך, נרענן בפעם הבאה
-        state.posts = mergeServer(json);
+        state.posts = mergeServer(json.posts);
+        state.feed = mergeFeed(json.feed || []);
+        state.rev = json.rev;
         state.loadError = false;
         saveCache();
     } catch (e) {
@@ -542,6 +589,77 @@ async function loadData() {
     state.loading = false;
     state.lastLoad = Date.now();
     render({ soft: true });
+    paintFeed();
+    startSync();
+}
+
+function mergeFeed(serverFeed) {
+    const ids = new Set(serverFeed.map(p => p.id));
+    return serverFeed.concat(state.feed.filter(p => p._status === 'pending' && !ids.has(p.id)));
+}
+
+/* ============ סנכרון חי: רק שינויים, בלי רינדור מחדש של מה שלא השתנה ============ */
+let syncTimer = null, syncBusy = false, syncFails = 0;
+function upsert(arr, rows) {
+    const idx = new Map(arr.map((p, i) => [p.id, i]));
+    rows.forEach(r => { if (idx.has(r.id)) arr[idx.get(r.id)] = r; else { idx.set(r.id, arr.length); arr.push(r); } });
+}
+function applySync(j) {
+    const known = new Set(state.posts.map(p => p.id));
+    if (j.reset) { state.posts = mergeServer(j.posts); state.feed = mergeFeed(j.feed || []); }
+    else {
+        if (j.posts.length) upsert(state.posts, j.posts);
+        if (j.removed.length) { const rm = new Set(j.removed); state.posts = state.posts.filter(p => !rm.has(p.id)); }
+        if (j.feed.length) upsert(state.feed, j.feed);
+        if (j.feed_removed.length) { const rm = new Set(j.feed_removed); state.feed = state.feed.filter(p => !rm.has(p.id)); }
+    }
+    state.rev = j.rev;
+    const rt = parseRoute().type;
+    if (!j.reset && (rt === 'topic' || rt === 'post') && state.topicId) {
+        const me = state.user && state.user.email;
+        j.posts.forEach(p => { if (!known.has(p.id) && p.topic_id === state.topicId && !p.title && !emailEq(p.author_email, me)) toast((p.author_name || 'משתמש') + ' הגיב/ה בנושא'); });
+    }
+    if (j.reset || j.posts.length || j.removed.length) { saveCache(); render({ soft: true }); }
+    if (j.reset || j.feed.length || j.feed_removed.length) paintFeed();
+}
+async function syncOnce() {
+    if (syncBusy || state.loading || state.rev < 0 || document.hidden || state.inflight > 0 || state.submitting) return;
+    syncBusy = true;
+    const started = Date.now();
+    try {
+        const res = await request(CFG.SYNC_URL + '?since=' + state.rev, {}, 12000);
+        const j = await res.json();
+        if (!j || !Array.isArray(j.posts)) throw new Error('bad response');
+        syncFails = 0;
+        if (state.inflight > 0 || state.mutatedAt > started) return;   // יש כתיבה בדרך, נקבל את השינוי בסבב הבא
+        applySync(j);
+    } catch (e) { syncFails++; }
+    finally { syncBusy = false; }
+}
+function startSync() {
+    if (syncTimer) return;
+    const loop = async () => { await syncOnce(); syncTimer = setTimeout(loop, Math.min(15000, 2500 + syncFails * 2500)); };
+    syncTimer = setTimeout(loop, 2500);
+}
+
+/* ---------- עדכון DOM מדויק: מחליפים רק מה שהשתנה ---------- */
+function setHTML(el, html) {
+    if (!el || el._h === html) return false;
+    el._h = html; el.innerHTML = html;
+    return true;
+}
+const nodeHTML = new WeakMap();
+function diffChildren(container, items) {
+    const tpl = document.createElement('template');
+    const make = it => { tpl.innerHTML = it.html; const n = tpl.content.firstElementChild; nodeHTML.set(n, it.html); return n; };
+    let i = 0;
+    for (const it of items) {
+        const cur = container.children[i];
+        if (cur && cur.id === it.id) { if (nodeHTML.get(cur) !== it.html) cur.replaceWith(make(it)); }
+        else container.insertBefore(make(it), cur || null);
+        i++;
+    }
+    while (container.children.length > i) container.lastElementChild.remove();
 }
 
 /* ============ מודל נתונים ============ */
@@ -799,9 +917,9 @@ function composerHTML(main) {
         <div class="composer-foot"><span>Ctrl+Enter לשליחה. עיצוב: **מודגש**, *נטוי*, - רשימה</span><button type="button" class="btn btn-primary" data-act="send">שליחה</button></div></div>`;
 }
 
-function paintHead() { const { main, replies } = threadData(state.topicId); const el = $('#thread-head'); if (el && main) el.innerHTML = headHTML(main, replies.filter(r => !isDeleted(r)).length); }
-function paintPosts() { const { main, replies } = threadData(state.topicId); const el = $('#thread-posts'); if (el && main) el.innerHTML = postHTML(main, true) + replies.map(r => postHTML(r, false)).join(''); }
-function paintComposer() { const { main } = threadData(state.topicId); const el = $('#composer'); if (el) el.innerHTML = composerHTML(main); }
+function paintHead() { const { main, replies } = threadData(state.topicId); const el = $('#thread-head'); if (el && main) setHTML(el, headHTML(main, replies.filter(r => !isDeleted(r)).length)); }
+function paintPosts() { const { main, replies } = threadData(state.topicId); const el = $('#thread-posts'); if (el && main) diffChildren(el, [main].concat(replies).map((p, i) => ({ id: 'p-' + p.id, html: postHTML(p, i === 0) }))); }
+function paintComposer() { const { main } = threadData(state.topicId); const el = $('#composer'); if (el) setHTML(el, composerHTML(main)); }
 
 function topicView({ id }) {
     const { main, replies } = threadData(id);
@@ -814,9 +932,7 @@ function topicView({ id }) {
     const catPath = cat ? '/category/' + (categoryNumber(cat.topic_id) || encodeURIComponent(cat.topic_id)) : '';
     return `<nav class="crumbs" aria-label="מיקום"><a href="${hrefOf('/')}" data-link="/">דף הבית</a>
         ${cat ? `<i class="fa-solid fa-chevron-left"></i><a href="${hrefOf(catPath)}" data-link="${catPath}">${esc(cat.title)}</a>` : ''}</nav>
-        <div id="thread-head">${headHTML(main, replies.filter(r => !isDeleted(r)).length)}</div>
-        <div id="thread-posts">${postHTML(main, true) + replies.map(r => postHTML(r, false)).join('')}</div>
-        <div id="composer">${composerHTML(main)}</div>`;
+        <div id="thread-head"></div><div id="thread-posts"></div><div id="composer"></div>`;
 }
 function postView({ id }) {
     const p = state.posts.find(x => x.id === id);
@@ -1406,11 +1522,11 @@ document.addEventListener('input', e => { if (e.target.id === 'users-q') { state
 /* ---------- רענון שקט ברקע ---------- */
 let refreshing = false;
 async function silentRefresh() {
-    if (refreshing || document.hidden || state.loading || state.submitting || state.inflight > 0) return;
-    refreshing = true;
-    try { await loadData(); } finally { refreshing = false; }
+    if (refreshing || syncBusy || document.hidden || state.loading || state.submitting || state.inflight > 0) return;
+    refreshing = true; syncBusy = true;
+    try { await loadData(); } finally { refreshing = false; syncBusy = false; }
 }
-setInterval(silentRefresh, 30000);
+setInterval(silentRefresh, 120000);    // רענון מלא רק כרשת ביטחון, השינויים השוטפים מגיעים מהסנכרון החי
 
 /* ============ חיפוש ============ */
 // נרמול לחיפוש: אותיות קטנות, בלי ניקוד, בלי גרשיים וגרשיים (כך ש"רמב"ם" ו"רמבם" זהים)
@@ -1775,6 +1891,7 @@ function render(opts = {}) {
     const token = ++state.renderToken;
     renderNav(route.type === 'tag' ? 'tags' : route.type);
     renderUser();
+    paintPstiaComposer();
     const app = $('#app');
     $('#reg-banner').hidden = !(state.needsReg && route.type !== 'login');
     if (state.loading && !state.posts.length && route.type !== 'login') { app.innerHTML = skeletons(5); state.shownKey = ''; return; }
@@ -1799,10 +1916,14 @@ function render(opts = {}) {
     if (opts.soft && (route.type === 'new' || route.type === 'edit') && state.shownKey === key && $('#topic-form')) return;
     const html = (views[route.type] || views.home)(route);
     if (token !== state.renderToken) return;
-    app.innerHTML = html;
+    if (opts.soft && state.shownKey === key && app._h === html) return;      // שום דבר לא השתנה, לא נוגעים ב-DOM
+    const keepY = window.scrollY, sameView = state.shownKey === key;
+    app.innerHTML = html; app._h = html;
     state.shownKey = key;
     if (opts.nav) window.scrollTo(0, 0);
+    else if (opts.soft && sameView) window.scrollTo(0, keepY);
     if ((route.type === 'topic' || route.type === 'post') && $('#thread-posts')) {
+        paintHead(); paintPosts(); paintComposer();
         const { main } = threadData(state.topicId);
         if (main) { registerView(main); markTopicSeen(main.topic_id); }
         if (state.pendingScroll) { const id = state.pendingScroll; state.pendingScroll = null; setTimeout(() => scrollToPost(id), 60); }
@@ -2048,7 +2169,7 @@ async function loadNotifs() {
 const loadSocial = () => Promise.all([loadFollows(), loadNotifs()]);
 function startPolling() {
     if (state.notifTimer) return;
-    state.notifTimer = setInterval(() => { if (state.user && state.user.registered && !document.hidden) loadNotifs(); }, 20000);
+    state.notifTimer = setInterval(() => { if (state.user && state.user.registered && !document.hidden) loadNotifs(); }, 6000);
 }
 function resetSocial() {
     clearInterval(state.notifTimer); state.notifTimer = null;
@@ -2202,14 +2323,140 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeNotif();
 }, true);
 
+/* ============ הפוסטיה ============ */
+const PSTIA_SEEN = 'elections_pstia_seen', PSTIA_OPEN = 'elections_pstia_open';
+const feedStamp = p => num(String(p.id).replace(/\D/g, ''));
+const isPstiaOpen = () => document.body.classList.contains('pstia-open');
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+function feedItemHTML(p) {
+    const id = esc(p.id), mine = canManage(p), vote = votes.get(p.id);
+    return `<article class="pitem" id="f-${id}">
+        <div class="post-head">${avatar(p.author_name, p.author_avatar, 38)}
+            <div>${authorLink(p)}<div class="post-time" title="${esc(p.created_at)}">${esc(timeAgo(p.created_at))}</div></div>
+            ${p._status === 'pending' ? '<span class="sending">שולח...</span>' : ''}</div>
+        <div class="post-body">${renderContent(p.content)}</div>
+        <div class="post-actions">
+            <button type="button" class="act ${vote === 'like' ? 'on-like' : ''}" data-act="feed-like" data-id="${id}" aria-pressed="${vote === 'like'}" aria-label="אהבתי"><i class="fa-${vote === 'like' ? 'solid' : 'regular'} fa-thumbs-up"></i>${num(p.likes)}</button>
+            <span class="grow"></span>
+            ${mine ? `<button type="button" class="act danger" data-act="feed-delete" data-id="${id}"><i class="fa-regular fa-trash-can"></i>מחיקה</button>` : ''}</div></article>`;
+}
+
+function paintFeed() {
+    const el = $('#pstia-feed'), more = $('#pstia-more');
+    if (!el) return;
+    const all = state.feed.filter(p => p.id && p.content).sort((a, b) => feedStamp(b) - feedStamp(a));
+    const shown = all.slice(0, state.pstiaMax);
+    diffChildren(el, shown.map(p => ({ id: 'f-' + p.id, html: feedItemHTML(p) })));
+    setHTML(more, !all.length
+        ? '<div class="pempty"><b>עדיין אין פוסטים</b>היו הראשונים לפרסם בפוסטיה.</div>'
+        : (all.length > shown.length ? `<div class="more"><button type="button" class="btn btn-ghost btn-sm" data-act="pstia-more">הצגת עוד (${all.length - shown.length})</button></div>` : ''));
+    updatePstiaBadge();
+}
+
+function updatePstiaBadge() {
+    const badge = $('#pstia-badge');
+    if (!badge) return;
+    const latest = state.feed.reduce((m, p) => Math.max(m, feedStamp(p)), 0);
+    if (isPstiaOpen() || lsGet(PSTIA_SEEN) === null) { if (state.rev >= 0) lsSet(PSTIA_SEEN, String(latest)); badge.hidden = true; return; }
+    const seen = num(lsGet(PSTIA_SEEN)), me = state.user && state.user.email;
+    const n = state.feed.filter(p => feedStamp(p) > seen && !emailEq(p.author_email, me)).length;
+    badge.hidden = !n; badge.textContent = n > 99 ? '99+' : n;
+}
+
+function paintPstiaComposer() {
+    const el = $('#pstia-composer');
+    if (!el) return;
+    const u = state.user, sig = u ? u.email : 'out';
+    if (el.dataset.sig === sig && el.firstChild) return;     // לא בונים מחדש, כדי לא לאבד מה שהוקלד
+    el.dataset.sig = sig;
+    el.innerHTML = u
+        ? `<div class="pcomposer">${editorHTML('pstia-input', state.pstiaDraft, 'מה תרצו לשתף?')}<div class="pfoot"><span>Ctrl+Enter לשליחה</span><button type="button" class="btn btn-primary btn-sm" data-act="pstia-send">פרסום</button></div></div>`
+        : `<div class="pcomposer"><div class="pnote">כדי לפרסם בפוסטיה צריך <a href="${hrefOf('/login')}" data-link="/login">להתחבר</a>.</div></div>`;
+}
+
+function setPstia(open) {
+    document.body.classList.toggle('pstia-open', open);
+    $('#pstia').classList.toggle('open', open);
+    $('#pstia').setAttribute('aria-hidden', String(!open));
+    $('#pstia-tab').setAttribute('aria-expanded', String(open));
+    lsSet(PSTIA_OPEN, open ? '1' : '');
+    if (open) { paintPstiaComposer(); paintFeed(); }
+    updatePstiaBadge();
+}
+
+async function sendPstia() {
+    if (!state.user) { toast('יש להתחבר כדי לפרסם', 'error'); return; }
+    const ta = $('#pstia-input'), content = ta ? ta.value.trim() : '';
+    if (!content) return;
+    if (state.uploads > 0) { toast('ממתינים לסיום העלאת התמונה'); return; }
+    const post = { id: 'fp_' + Date.now(), author_name: state.user.name, author_email: state.user.email, author_avatar: state.user.picture,
+        content, created_at: new Date().toLocaleString('he-IL'), likes: 0, _status: 'pending' };
+    state.feed.push(post);
+    state.pstiaDraft = ''; ta.value = '';
+    paintFeed();
+    $('#pstia-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+    const ok = await feedApi.insert([post]);
+    if (ok) { post._status = null; paintFeed(); }
+    else {
+        state.feed = state.feed.filter(x => x !== post);
+        state.pstiaDraft = content; const live = $('#pstia-input'); if (live) live.value = content;
+        paintFeed(); toast('הפרסום נכשל, הטקסט נשמר בתיבה. נסו שוב', 'error');
+    }
+}
+
+async function likeFeed(id) {
+    if (!state.user) { toast('יש להתחבר כדי להצביע', 'error'); return; }
+    const post = state.feed.find(p => p.id === id);
+    if (!post) return;
+    const cur = votes.get(id), prev = num(post.likes);
+    post.likes = Math.max(0, prev + (cur === 'like' ? -1 : 1));
+    votes.set(id, cur === 'like' ? null : 'like');
+    paintFeed();
+    const ok = await feedApi.update(id, { likes: post.likes });
+    if (!ok) { post.likes = prev; votes.set(id, cur); paintFeed(); toast('שמירת ההצבעה נכשלה', 'error'); }
+}
+
+async function deleteFeed(id) {
+    const post = state.feed.find(p => p.id === id);
+    if (!post || !canManage(post)) return;
+    if (!await confirmDialog('מחיקת פוסט', 'הפוסט יימחק לצמיתות.', 'מחיקה')) return;
+    const prev = state.feed.slice();
+    state.feed = state.feed.filter(p => p.id !== id);
+    paintFeed();
+    const ok = await feedApi.remove(id);
+    if (ok) toast('הפוסט נמחק', 'success');
+    else { state.feed = prev; paintFeed(); toast('המחיקה נכשלה, נסו שוב', 'error'); }
+}
+
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    switch (b.dataset.act) {
+        case 'pstia-toggle': setPstia(!isPstiaOpen()); break;
+        case 'pstia-close': setPstia(false); break;
+        case 'pstia-send': sendPstia(); break;
+        case 'pstia-more': state.pstiaMax += 40; paintFeed(); break;
+        case 'feed-like': likeFeed(b.dataset.id); break;
+        case 'feed-delete': deleteFeed(b.dataset.id); break;
+    }
+});
+document.addEventListener('input', e => { if (e.target.id === 'pstia-input') state.pstiaDraft = e.target.value; });
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && e.target.id === 'pstia-input') { e.preventDefault(); sendPstia(); }
+    else if (e.key === 'Escape' && isPstiaOpen() && !$('.overlay') && !state.mention) setPstia(false);
+});
+
 /* ============ אתחול ============ */
 state.user = safeJSON(localStorage.getItem(CFG.USER_KEY), null);
 document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && Date.now() - state.lastLoad > 60000 && !state.loading) loadData();
+    if (!document.hidden) syncOnce();
 });
 render();
 loadData();
 initGoogle();
+if (window.innerWidth > 760 && lsGet(PSTIA_OPEN) === '1') setPstia(true);
 if (state.user) checkRegistration();
 </script>
 </body>
