@@ -421,6 +421,13 @@ body.pstia-open .pstia-tab { right: var(--pstia-w); }
 .pempty { padding: 36px 18px; text-align: center; color: var(--muted); }
 .pempty b { display: block; color: var(--ink); margin-bottom: 4px; }
 .pstia-body .more { padding: 14px 0; margin: 0; }
+@media (min-width: 761px) {
+    /* הפוסטיה נכנסת מתחת לסרגל העליון: הסרגל נשאר ברוחב מלא ורק תוכן האתר נדחף שמאלה */
+    main.container, .banner { transition: margin-right .25s ease; }
+    body.pstia-open main.container { margin-right: var(--pstia-w); margin-left: 0; max-width: none; }
+    body.pstia-open .banner { margin-right: var(--pstia-w); }
+    body.pstia-open .toasts { right: var(--pstia-w); }
+}
 @media (max-width: 760px) {
     .pstia { bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); }
     .pstia-tab { top: 62%; }
